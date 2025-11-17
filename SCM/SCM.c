@@ -34,7 +34,7 @@ void clear_log_file() {
     }
 }
 
-void read_config(const char *config_file, int *start, int *stop, int *stop_current, int *Trickle, int *main_switch, int *stoptime, int *debug) {
+void read_config(const char *config_file, int *start, int *stop, int *stop_current, int *full, int *main_switch, int *stoptime, int *debug) {
     FILE *file = fopen(config_file, "r");
     if (file == NULL) {
         perror("无法打开配置文件");
@@ -48,7 +48,7 @@ void read_config(const char *config_file, int *start, int *stop, int *stop_curre
             if (strcmp(key, "start") == 0) *start = atoi(value);
             else if (strcmp(key, "stop") == 0) *stop = atoi(value);
             else if (strcmp(key, "stop_current") == 0) *stop_current = atoi(value);
-            else if (strcmp(key, "Trickle") == 0) *Trickle = (strcmp(value, "true") == 0);
+            else if (strcmp(key, "full") == 0) *full = (strcmp(value, "true") == 0);
             else if (strcmp(key, "main_switch") == 0) *main_switch = atoi(value);
             else if (strcmp(key, "stoptime") == 0) *stoptime = atoi(value);
             else if (strcmp(key, "debug") == 0) *debug = (strcmp(value, "true") == 0);
@@ -115,12 +115,12 @@ void read_count_file(const char *count_file, const char *key, int *value) {
     fclose(file);
 }
 
-void check_and_reload_config(const char *config_file, int *start, int *stop, int *stop_current, int *Trickle, int *main_switch, int *stoptime, int *debug) {
+void check_and_reload_config(const char *config_file, int *start, int *stop, int *stop_current, int *full, int *main_switch, int *stoptime, int *debug) {
     struct stat file_stat;
     if (stat(config_file, &file_stat) == 0) {
         if (file_stat.st_mtime != last_mod_time) {
             last_mod_time = file_stat.st_mtime;
-            read_config(config_file, start, stop, stop_current, Trickle, main_switch, stoptime, debug);
+            read_config(config_file, start, stop, stop_current, full, main_switch, stoptime, debug);
 
             time_t now;
             struct tm *tm_info;
@@ -144,13 +144,13 @@ void check_and_reload_config(const char *config_file, int *start, int *stop, int
 }
 
 int main() {
-    int start = 0, stop = 0, stop_current = 0, Trickle = 0, main_switch = 0, stoptime = 10, debug = 0;
+    int start = 0, stop = 0, stop_current = 0, full = 0, main_switch = 0, stoptime = 10, debug = 0;
     int current = 0, level = 0;
     int was_stopped = 0;
 
     clear_log_file(); // 清空日志文件
 
-    read_config(CONFIG_FILE, &start, &stop, &stop_current, &Trickle, &main_switch, &stoptime, &debug);
+    read_config(CONFIG_FILE, &start, &stop, &stop_current, &full, &main_switch, &stoptime, &debug);
 
     // 保存配置文件的最后修改时间
     struct stat file_stat;
@@ -177,12 +177,12 @@ int main() {
              "%s [配置] 停充电流：%dµA\n"
              "%s [配置] 完全充满：%s\n"
              "%s [配置] 调试日志：%s",
-             timestamp, timestamp, stop, timestamp, start, timestamp, stop_current, timestamp, Trickle ? "true" : "false", timestamp, debug ? "true" : "false");
+             timestamp, timestamp, stop, timestamp, start, timestamp, stop_current, timestamp, full ? "true" : "false", timestamp, debug ? "true" : "false");
 
     log_and_print(log_msg);
 
     while (1) {
-        check_and_reload_config(CONFIG_FILE, &start, &stop, &stop_current, &Trickle, &main_switch, &stoptime, &debug);
+        check_and_reload_config(CONFIG_FILE, &start, &stop, &stop_current, &full, &main_switch, &stoptime, &debug);
 
         if (main_switch != 1) {
             snprintf(log_msg, sizeof(log_msg), "%s 主开关已关闭，程序终止", timestamp);
@@ -233,7 +233,7 @@ int main() {
         }
 
         // 停止充电逻辑
-        if (Trickle) {
+        if (full) {
             if (level == stop && current <= stop_current && !was_stopped) {
                 fprintf(switch_file, "1");
                 snprintf(log_msg, sizeof(log_msg), "%s [信息] 电量: %d | 电流: %d | 已停止充电", timestamp, level, current);

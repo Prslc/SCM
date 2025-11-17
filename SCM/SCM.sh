@@ -59,7 +59,7 @@ main() {
         fi
 
         # 停止充电逻辑
-        if [ "$Trickle" == "true" ]; then
+        if [ "$full" == "true" ]; then
             if [ "$level" -eq "$stop" ] && [ "$current" -eq "$stop_current" ]; then
                 if echo 1 > "$switch"; then
                     echo "$time [信息] 电量: $level | 电流: $current | 已停止充电" >> "$log_file"
@@ -103,7 +103,7 @@ if [ "$main_switch" -eq 1 ]; then
     echo "$time [配置] 停止电量：$stop% 
 $time [配置] 恢复电量：$start%
 $time [配置] 停充电流：$stop_currentµA
-$time [配置] 完全充满：$Trickle
+$time [配置] 完全充满：$full
 $time [配置] 最大电流：$input_maxµA" >> "$log_file"
     main
 else
