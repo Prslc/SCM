@@ -5,15 +5,21 @@ mod logger;
 mod battery;
 mod config;
 mod constants;
+mod utils;
 
 fn main() {
-    logger::init_logger(); 
-    crate::battery::read_battery_info();
-
+    // init
+    logger::init_logger().expect("Failed to initialize logger"); 
     let cfg_manager = ConfigManager::new();
-    if let Some(cfg) = cfg_manager.get() {
-        info!("Loaded config: {:?}", cfg);
-    } else {
-        error!("Using default configuration or exiting.");
+    let battery_info = crate::battery::read_battery_info();
+    
+    cfg_manager.watch();
+    info!("Listening to configuration file....");
+    let level = battery_info.level();
+    info!("Level: {:?}", level);
+
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(5));
     }
+
 }

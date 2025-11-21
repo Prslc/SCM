@@ -5,7 +5,7 @@ use std::thread;
 use inotify::{Inotify, WatchMask};
 use serde::Deserialize;
 
-use crate::constants::CONFIG_DIR;
+use crate::constants::{CONFIG_DIR, CONFIG_FILE};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
@@ -30,7 +30,7 @@ impl ConfigManager {
     }
 
     pub fn load() -> Option<Config> {
-        let content = fs::read_to_string(CONFIG_DIR).ok()?;
+        let content = fs::read_to_string(CONFIG_FILE).ok()?;
         toml::from_str::<Config>(&content).ok()
     }
 
@@ -39,7 +39,7 @@ impl ConfigManager {
         self.inner.read().ok()?.clone()
     }
 
-    /// Spawn a thread to watch the config file
+    /// Watch the directory for config changes
     pub fn watch(&self) {
         let cfg_ref = self.inner.clone();
 
@@ -50,7 +50,9 @@ impl ConfigManager {
                 .watches()
                 .add(
                     CONFIG_DIR,
-                    WatchMask::MODIFY | WatchMask::CLOSE_WRITE,
+                    WatchMask::MODIFY
+                        | WatchMask::CLOSE_WRITE
+                        | WatchMask::MOVED_TO
                 )
                 .expect("Failed to add inotify watch");
 
@@ -62,18 +64,16 @@ impl ConfigManager {
                     .expect("Failed to read inotify events");
 
                 for event in events {
-                    if event.mask.contains(inotify::EventMask::MODIFY)
-                        || event.mask.contains(inotify::EventMask::CLOSE_WRITE)
-                    {
-                        println!("Config modified, reloading...");
+                    if let Some(name) = event.name {
+                        if name.to_string_lossy() == "config.toml" {
+                            println!("Config modified, reloading...");
 
-                        if let Some(new_cfg) = Self::load() {
-                            let mut lock = cfg_ref.write().unwrap();
-                            *lock = Some(new_cfg.clone());
-
-                            println!("New config: {:?}", new_cfg);
-                        } else {
-                            eprintln!("Failed to reload config");
+                            if let Some(new_cfg) = Self::load() {
+                                *cfg_ref.write().unwrap() = Some(new_cfg.clone());
+                                println!("New config: {:?}", new_cfg);
+                            } else {
+                                eprintln!("Failed to reload config");
+                            }
                         }
                     }
                 }

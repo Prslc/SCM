@@ -34,6 +34,14 @@ pub fn read_battery_info() -> BatteryInfo {
     }
 }
 
+impl BatteryInfo {
+    crate::opt_getter!(level, capacity);
+    crate::opt_getter!(voltage, voltage_now);
+    crate::opt_getter!(current, current_now);
+    crate::opt_getter!(status, status, str);
+    crate::opt_getter!(health, health, str);
+}
+
 pub struct ChargeSwitch {
     valid_path: Option<String>,
 }
